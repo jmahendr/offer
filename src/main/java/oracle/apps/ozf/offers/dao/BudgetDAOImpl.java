@@ -1,8 +1,8 @@
 package oracle.apps.ozf.offers.dao;
 
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.List;
-
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +15,7 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import oracle.apps.ozf.offers.Budget;
+import oracle.apps.ozf.offers.dao.mapper.BudgetMapper;
 
 @Repository("BudgetDAO")
 public class BudgetDAOImpl implements BudgetDAO{
@@ -73,6 +74,15 @@ public class BudgetDAOImpl implements BudgetDAO{
 			+ "last_update_login = ?"
 			+ " where fund_id = ?";
 	
+	private final String deleteSQL = "DELETE from OZF_FUNDS_ALL_B where FUND_ID = ?";
+	private final String findByBudgetSQL = "SELECT * from OZF_FUNDS_ALL_B where FUND_ID = ?";
+	private final String findByOfferSQL = "SELECT F.* from OZF_FUNDS_ALL_B F, OZF_ACT_BUDGETS B " 
+			                              + "where B.ACT_BUDGET_USED_BY_ID = ? and "
+			                              + "b.ACT_BUDGET_USED_BY = 'OFFER' and "
+			                              + "F.FUND_ID = B.BUDGET_SOURCE_ID and "
+			                              + "B.BUDGET_SOURCE_TYPE = 'FUND'";
+			                              
+	
 	@Autowired
 	public void setDataSource(DataSource dataSource) {
 		this.dataSource = dataSource;
@@ -88,9 +98,7 @@ public class BudgetDAOImpl implements BudgetDAO{
 		
 		trxDef = new DefaultTransactionDefinition();
 		TransactionStatus trxStatus = trxMgr.getTransaction(trxDef);
-		
-		System.out.println(updateSQL);
-		
+			
 		Object[] params = {
 				budget.getFundNumber(),
 				budget.getFundType(),
@@ -152,27 +160,64 @@ public class BudgetDAOImpl implements BudgetDAO{
 		return true;
 	}//end of update
 
+	/**
+	 * Method to delete a budget.
+	 * @param Budget an instance of budget bean,
+	 * the fundId of the bean is used to perform the delete.
+	 */
 	public boolean delete(Budget budget) {
-		// TODO Auto-generated method stub
-		return false;
-	}
+		trxDef = new DefaultTransactionDefinition();
+		TransactionStatus trxStatus = trxMgr.getTransaction(trxDef);
+		
+		Object[] param = {budget.getFundId()};
+		Object[] paramType = {Types.BIGINT};
+		
+		try {
+			jdbcTemplateObject.update(deleteSQL, param, paramType);
+			trxMgr.commit(trxStatus);
+		}catch (DataAccessException e) {
+			trxMgr.rollback(trxStatus);
+			throw new RuntimeException(e);
+		}
+		return true;
+	}//end of delete
 
 	public Budget findByBudgetId(int budgetId) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+		trxDef = new DefaultTransactionDefinition();
+		TransactionStatus trxStatus = trxMgr.getTransaction(trxDef);
 
-	public List<Budget> findByOfferIf(int offerId) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+		Budget budget = null;
+		try {
+			budget = jdbcTemplateObject.queryForObject(findByBudgetSQL, new Object[] {budgetId}, new BudgetMapper());
+			trxMgr.commit(trxStatus);
+		}catch (DataAccessException e) {
+			trxMgr.rollback(trxStatus);
+			throw new RuntimeException(e);
+		}
+		
+		return budget;
+	}//end of find by budget id
+
+	public ArrayList<Budget> findByOfferId(int offerId) {
+		trxDef = new DefaultTransactionDefinition();
+		TransactionStatus trxStatus = trxMgr.getTransaction(trxDef);
+
+		ArrayList<Budget> listOfBudgets = null;
+		try {
+			listOfBudgets = (ArrayList<Budget>) jdbcTemplateObject.query(findByOfferSQL, new Object[] {offerId}, new BudgetMapper());
+			trxMgr.commit(trxStatus);
+		}catch (DataAccessException e) {
+			trxMgr.rollback(trxStatus);
+		}
+		
+		return listOfBudgets;
+	}//end of find by offer id
+	
 
 	public boolean insert(Budget budget) {
 		
 		trxDef = new DefaultTransactionDefinition();
 		TransactionStatus trxStatus = trxMgr.getTransaction(trxDef);
-		
-		System.out.println(insertSQL);
 		
 		Object[] params = {
 				budget.getFundId(),
@@ -224,9 +269,8 @@ public class BudgetDAOImpl implements BudgetDAO{
 
 		System.out.println(budget.toString());
 		try {
-			jdbcTemplateObject.update(insertSQL, params, types);
-			trxMgr.commit(trxStatus);
-			
+				jdbcTemplateObject.update(insertSQL, params, types);
+				trxMgr.commit(trxStatus);
 		} catch (DataAccessException e) {
 			trxMgr.commit(trxStatus);
 			throw new RuntimeException(e);

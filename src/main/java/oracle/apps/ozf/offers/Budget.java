@@ -31,7 +31,7 @@ public class Budget {
 		return objectVersionNumber;
 	}
 
-	public void setObjectVersionNumber(int objectVersionNumber) {
+	public void setObjectVersionNumber(long objectVersionNumber) {
 		this.objectVersionNumber = objectVersionNumber;
 	}
 

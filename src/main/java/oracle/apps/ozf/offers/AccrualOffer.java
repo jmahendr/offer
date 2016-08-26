@@ -103,5 +103,6 @@ public class AccrualOffer {
 	public void setBudget(ArrayList<Budget> budget) {
 		this.budget = budget;
 	}
+	
 
 }
